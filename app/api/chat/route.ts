@@ -1,30 +1,17 @@
-import { streamText, convertToModelMessages } from "ai";
+import { NextRequest } from "next/server";
 
-export async function POST(request: Request) {
-  const { messages, documentContext } = await request.json();
-  
-  console.log("[v0] API received messages:", messages?.length, "context length:", documentContext?.length);
-
-  const systemPrompt = `You are a financial analyst assistant specialized in analyzing SEC 10-K filings. You have been provided with the contents of a 10-K document.
-
-DOCUMENT CONTEXT:
-${documentContext}
-
-INSTRUCTIONS:
-1. Answer questions based ONLY on the information provided in the document above.
-2. ALWAYS cite the specific page number(s) where you found the information using bold formatting like **Page 15** or **Pages 23-25**.
-3. If you cannot find the answer in the document, clearly state that the information is not available in the provided 10-K.
-4. Be precise and professional in your analysis.
-5. When discussing financial figures, include the specific numbers from the document.
-6. If a question is ambiguous, ask for clarification.
-
-Remember: Every factual claim must include a page citation in bold.`;
-
-  const result = streamText({
-    model: "anthropic/claude-sonnet-4-20250514",
-    system: systemPrompt,
-    messages: await convertToModelMessages(messages),
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const response = await fetch("http://localhost:8000/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
-
-  return result.toUIMessageStreamResponse();
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: "Unknown error" }));
+    return new Response(JSON.stringify(err), { status: response.status });
+  }
+  return new Response(response.body, {
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+  });
 }
