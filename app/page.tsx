@@ -8,17 +8,17 @@ type AppState = "upload" | "chat";
 
 export default function Home() {
   const [appState, setAppState] = useState<AppState>("upload");
-  const [documentContext, setDocumentContext] = useState<string>("");
+  const [docId, setDocId] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
 
-  const handleFileProcessed = (context: string, name: string) => {
-    setDocumentContext(context);
+  const handleFileProcessed = (id: string, name: string) => {
+    setDocId(id);
     setFileName(name);
     setAppState("chat");
   };
 
   const handleReset = () => {
-    setDocumentContext("");
+    setDocId("");
     setFileName("");
     setAppState("upload");
   };
@@ -31,7 +31,7 @@ export default function Home() {
         </main>
       ) : (
         <ChatInterface
-          documentContext={documentContext}
+          docId={docId}
           fileName={fileName}
           onReset={handleReset}
         />
