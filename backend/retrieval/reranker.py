@@ -1,22 +1,34 @@
-import voyageai
+from sentence_transformers import CrossEncoder
 from config import settings
 
-_client = voyageai.Client(api_key=settings.voyage_api_key)
-RERANK_MODEL = "rerank-2"
 TOP_K = 5
+
+_model: CrossEncoder | None = None
+
+
+def _get_model() -> CrossEncoder:
+    """Lazy-load to avoid loading the model at import time."""
+    global _model
+    if _model is None:
+        _model = CrossEncoder(settings.rerank_model)
+    return _model
 
 
 def rerank(query: str, candidates: list[dict]) -> list[dict]:
     """
-    Reranks candidate chunks using Voyage rerank-2.
+    Reranks candidate chunks using a local BGE cross-encoder.
     Returns up to TOP_K chunks sorted by relevance score (highest first),
     each enriched with 'rerank_score'.
     """
     if not candidates:
         return []
-    texts = [c["text"] for c in candidates]
-    result = _client.rerank(query, texts, model=RERANK_MODEL, top_k=TOP_K)
+    model = _get_model()
+    pairs = [(query, c["text"]) for c in candidates]
+    scores = model.predict(pairs, show_progress_bar=False)
+
+    scored = list(zip(candidates, scores))
+    scored.sort(key=lambda x: x[1], reverse=True)
     return [
-        {**candidates[item.index], "rerank_score": item.relevance_score}
-        for item in result.results
+        {**c, "rerank_score": float(s)}
+        for c, s in scored[:TOP_K]
     ]

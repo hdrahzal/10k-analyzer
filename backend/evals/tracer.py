@@ -69,7 +69,7 @@ def log_trace(
                 for c in retrieved_chunks
             ]),
             response, latency_ms,
-            "claude-sonnet-4-6", "voyage-finance-2",
+            "claude-sonnet-4-6", "bge-large-en-v1.5",
         ),
     )
     db.commit()
