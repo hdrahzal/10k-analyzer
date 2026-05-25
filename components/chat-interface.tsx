@@ -37,6 +37,8 @@ export function ChatInterface({
 
   const isLoading = status === "streaming" || status === "submitted";
 
+  console.log("[v0] Chat status:", status, "Messages:", messages.length, messages);
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {

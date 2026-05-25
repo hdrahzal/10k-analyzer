@@ -2,6 +2,8 @@ import { streamText, convertToModelMessages } from "ai";
 
 export async function POST(request: Request) {
   const { messages, documentContext } = await request.json();
+  
+  console.log("[v0] API received messages:", messages?.length, "context length:", documentContext?.length);
 
   const systemPrompt = `You are a financial analyst assistant specialized in analyzing SEC 10-K filings. You have been provided with the contents of a 10-K document.
 
