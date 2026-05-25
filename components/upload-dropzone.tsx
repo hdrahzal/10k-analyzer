@@ -252,8 +252,8 @@ export function UploadDropzone({ onFileProcessed }: UploadDropzoneProps) {
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">
           10-K/Q Analyzer
         </h1>
-        <p className="mt-2 text-muted-foreground">
-          Upload a 10-K or 10-Q filing to start analyzing
+        <p className="mt-2 max-w-md text-muted-foreground">
+          Upload a 10-K/Q filing to start analyzing. You can then ask our dedicated chatbot about the filing you&apos;ve uploaded.
         </p>
       </div>
 

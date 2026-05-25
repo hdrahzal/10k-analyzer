@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { Send, FileText } from "lucide-react";
@@ -23,21 +23,26 @@ export function ChatInterface({
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      prepareSendMessagesRequest: ({ messages }) => ({
-        body: {
-          messages,
-          documentContext,
-        },
+  // Memoize transport to prevent recreation on every render
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        prepareSendMessagesRequest: ({ messages }) => ({
+          body: {
+            messages,
+            documentContext,
+          },
+        }),
       }),
-    }),
+    [documentContext]
+  );
+
+  const { messages, sendMessage, status } = useChat({
+    transport,
   });
 
   const isLoading = status === "streaming" || status === "submitted";
-
-  console.log("[v0] Chat status:", status, "Messages:", messages.length, messages);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
