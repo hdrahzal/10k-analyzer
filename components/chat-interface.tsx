@@ -1,12 +1,17 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { Send, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble, type Citation, type ChatMessage } from "@/components/message-bubble";
-import { PdfViewer } from "@/components/pdf-viewer";
+
+const PdfViewer = dynamic(
+  () => import("@/components/pdf-viewer").then((m) => m.PdfViewer),
+  { ssr: false }
+);
 
 interface ChatInterfaceProps {
   docId: string;
