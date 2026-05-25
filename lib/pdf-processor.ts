@@ -1,4 +1,4 @@
-import pdf from "pdf-parse";
+import * as pdfParse from "pdf-parse";
 
 export interface TextChunk {
   text: string;
@@ -19,7 +19,9 @@ export async function processPDF(
   buffer: Buffer,
   fileName: string
 ): Promise<ProcessedDocument> {
-  const data = await pdf(buffer);
+  // Use the default export from the namespace import
+  const pdf = (pdfParse as { default?: typeof pdfParse }).default || pdfParse;
+  const data = await (pdf as (buffer: Buffer) => Promise<{ text: string; numpages: number }>)(buffer);
 
   const pageTexts: { text: string; pageNumber: number }[] = [];
 
