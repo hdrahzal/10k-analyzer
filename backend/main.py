@@ -1,9 +1,17 @@
 # backend/main.py
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 
-app = FastAPI(title="10-K Analyzer API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    yield
+
+
+app = FastAPI(title="10-K Analyzer API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -11,4 +19,3 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
-settings.data_dir.mkdir(parents=True, exist_ok=True)

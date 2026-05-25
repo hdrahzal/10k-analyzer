@@ -9,7 +9,10 @@ class Settings(BaseSettings):
     data_dir: Path = Path(__file__).parent.parent / "data"
     fastapi_port: int = 8000
 
-    model_config = {"env_file": "../.env.local", "extra": "ignore"}
+    model_config = {
+        "env_file": str(Path(__file__).parent.parent / ".env.local"),
+        "extra": "ignore",
+    }
 
 
 settings = Settings()

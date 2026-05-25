@@ -1,6 +1,6 @@
 # backend/models.py
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal
 
 
 class IngestResponse(BaseModel):
@@ -12,7 +12,7 @@ class IngestResponse(BaseModel):
 
 
 class Message(BaseModel):
-    role: str
+    role: Literal["user", "assistant"]
     content: str
 
 
@@ -30,5 +30,5 @@ class ChatRequest(BaseModel):
 
 class FeedbackRequest(BaseModel):
     trace_id: str
-    rating: str
-    comment: Optional[str] = None
+    rating: Literal["up", "down"]
+    comment: str | None = None
