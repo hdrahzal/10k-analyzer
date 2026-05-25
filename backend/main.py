@@ -6,12 +6,13 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from config import settings
-from models import IngestResponse, ChatRequest
+from models import IngestResponse, ChatRequest, FeedbackRequest
 from ingest.pipeline import ingest_document
 from retrieval.search import dual_search
 from retrieval.rrf import reciprocal_rank_fusion
 from retrieval.reranker import rerank
 from generation.chat import stream_response
+from evals.tracer import log_feedback
 
 
 @asynccontextmanager
@@ -89,3 +90,9 @@ async def serve_pdf(doc_id: str):
     if not pdf_path.exists():
         raise HTTPException(status_code=404, detail="PDF not found.")
     return FileResponse(pdf_path, media_type="application/pdf")
+
+
+@app.post("/feedback")
+async def feedback(request: FeedbackRequest):
+    log_feedback(request.trace_id, request.rating, request.comment)
+    return {"status": "ok"}
