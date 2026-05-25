@@ -1,62 +1,120 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { Send, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageBubble } from "@/components/message-bubble";
+import { MessageBubble, type Citation, type ChatMessage } from "@/components/message-bubble";
+import { PdfViewer } from "@/components/pdf-viewer";
 
 interface ChatInterfaceProps {
-  documentContext: string;
+  docId: string;
   fileName: string;
   onReset: () => void;
 }
 
-export function ChatInterface({
-  documentContext,
-  fileName,
-  onReset,
-}: ChatInterfaceProps) {
+const SUGGESTIONS = [
+  "What are the main risk factors?",
+  "Summarize the revenue trends",
+  "What is the debt structure?",
+];
+
+export function ChatInterface({ docId, fileName, onReset }: ChatInterfaceProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [viewer, setViewer] = useState<Citation | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Memoize transport to prevent recreation on every render
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/chat",
-        prepareSendMessagesRequest: ({ messages }) => ({
-          body: {
-            messages,
-            documentContext,
-          },
-        }),
-      }),
-    [documentContext]
-  );
-
-  const { messages, sendMessage, status } = useChat({
-    transport,
-  });
-
-  const isLoading = status === "streaming" || status === "submitted";
-
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const sendFeedback = useCallback(async (traceId: string, rating: "up" | "down") => {
+    await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trace_id: traceId, rating }),
+    });
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    sendMessage({ text: input });
+    const userMessage: ChatMessage = { role: "user", content: input };
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput("");
+    setIsLoading(true);
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          doc_id: docId,
+          messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Chat request failed: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          try {
+            const event = JSON.parse(raw);
+            if (event.type === "citations") {
+              setMessages((prev) => {
+                const next = [...prev];
+                next[next.length - 1] = { ...next[next.length - 1], citations: event.value };
+                return next;
+              });
+            } else if (event.type === "token") {
+              setMessages((prev) => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                next[next.length - 1] = { ...last, content: last.content + event.value };
+                return next;
+              });
+            }
+          } catch {
+            // malformed event - skip
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Chat error:", err);
+      setMessages((prev) => {
+        const next = [...prev];
+        next[next.length - 1] = {
+          ...next[next.length - 1],
+          content: "Sorry, I couldn't get a response from the backend.",
+        };
+        return next;
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -85,19 +143,12 @@ export function ChatInterface({
               <div className="rounded-full bg-muted p-4">
                 <FileText className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="mt-4 text-lg font-medium text-foreground">
-                Start your analysis
-              </h3>
+              <h3 className="mt-4 text-lg font-medium text-foreground">Start your analysis</h3>
               <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                Ask any question about the 10-K filing. The AI will cite
-                specific page numbers in its responses.
+                Ask any question about the 10-K filing. Page citations are clickable.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
-                {[
-                  "What are the main risk factors?",
-                  "Summarize the revenue trends",
-                  "What is the debt structure?",
-                ].map((suggestion) => (
+                {SUGGESTIONS.map((suggestion) => (
                   <button
                     key={suggestion}
                     onClick={() => setInput(suggestion)}
@@ -109,19 +160,22 @@ export function ChatInterface({
               </div>
             </div>
           ) : (
-            messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
+            messages.map((message, i) => (
+              <MessageBubble
+                key={i}
+                message={message}
+                onPageClick={setViewer}
+                onFeedback={sendFeedback}
+              />
             ))
           )}
 
-          {isLoading && messages[messages.length - 1]?.role === "user" && (
+          {isLoading && messages[messages.length - 1]?.content === "" && (
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                 <Spinner className="h-4 w-4" />
               </div>
-              <span className="text-sm text-muted-foreground">
-                Analyzing document...
-              </span>
+              <span className="text-sm text-muted-foreground">Analyzing document...</span>
             </div>
           )}
         </div>
@@ -145,15 +199,20 @@ export function ChatInterface({
               disabled={!input.trim() || isLoading}
               className="rounded-xl px-4"
             >
-              {isLoading ? (
-                <Spinner className="h-5 w-5" />
-              ) : (
-                <Send className="h-5 w-5" />
-              )}
+              {isLoading ? <Spinner className="h-5 w-5" /> : <Send className="h-5 w-5" />}
             </Button>
           </div>
         </form>
       </div>
+
+      {viewer && (
+        <PdfViewer
+          docId={viewer.doc_id}
+          page={viewer.page}
+          anchorText={viewer.anchor_text}
+          onClose={() => setViewer(null)}
+        />
+      )}
     </div>
   );
 }
