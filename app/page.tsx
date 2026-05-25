@@ -1,16 +1,41 @@
+"use client";
+
+import { useState } from "react";
+import { UploadDropzone } from "@/components/upload-dropzone";
+import { ChatInterface } from "@/components/chat-interface";
+
+type AppState = "upload" | "chat";
+
 export default function Home() {
+  const [appState, setAppState] = useState<AppState>("upload");
+  const [documentContext, setDocumentContext] = useState<string>("");
+  const [fileName, setFileName] = useState<string>("");
+
+  const handleFileProcessed = (context: string, name: string) => {
+    setDocumentContext(context);
+    setFileName(name);
+    setAppState("chat");
+  };
+
+  const handleReset = () => {
+    setDocumentContext("");
+    setFileName("");
+    setAppState("upload");
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center font-sans">
-      <main className="flex w-full max-w-3xl flex-col items-center gap-8 px-6 py-16 text-center sm:items-start sm:text-left">
-        <div className="flex flex-col gap-4">
-          <h1 className="text-4xl font-bold tracking-tight">
-            10k-analyzer
-          </h1>
-          <p className="max-w-md text-lg text-muted-foreground">
-            To get started, send a prompt or modify this page directly.
-          </p>
-        </div>
-      </main>
+    <div className="flex h-screen flex-col bg-background">
+      {appState === "upload" ? (
+        <main className="flex flex-1 items-center justify-center p-6">
+          <UploadDropzone onFileProcessed={handleFileProcessed} />
+        </main>
+      ) : (
+        <ChatInterface
+          documentContext={documentContext}
+          fileName={fileName}
+          onReset={handleReset}
+        />
+      )}
     </div>
   );
 }
