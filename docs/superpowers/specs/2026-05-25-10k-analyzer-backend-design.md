@@ -111,15 +111,7 @@ Produces a unified ranking of up to 40 candidates. Chunks that appear in both li
 Pass top 20 RRF candidates + original query to `voyageai.rerank()` (`rerank-2` model). Take top 5 by rerank score.
 
 ### Step 4 — Context Assembly
-Format the 5 chunks for the Claude prompt:
-```
-[Section: Item 7 – MD&A | Pages 42–43]
-{chunk text}
-
-[Section: Item 1A – Risk Factors | Pages 18–19]
-{chunk text}
-...
-```
+The 5 chunks are formatted with section and page labels, then injected into the `<context>` block of the system prompt (see Section 4).
 
 ### Step 5 — Citation Metadata
 Alongside the streamed response, the endpoint returns a `citations` array:
@@ -136,13 +128,26 @@ The frontend parses `**[Page 42]**` markers in the response text and renders the
 ## 4. Generation & Chat
 
 ### System Prompt
-```
+XML tags separate the analyst role from the retrieved document context so Claude clearly distinguishes its persona/rules from the source material:
+
+```xml
+<role>
 You are a senior investment banking analyst specializing in SEC filings.
-Answer questions based ONLY on the document context provided below.
 For every factual claim, cite the source with a bold page marker: **[Page N]**.
 If the context does not contain enough information to answer the question,
 respond: "The document does not contain enough information to answer this question."
 Keep answers concise — 3 to 5 sentences unless the question requires more detail.
+Answer based ONLY on the content within the <context> tags below.
+</role>
+
+<context>
+[Section: Item 7 – MD&A | Pages 42–43]
+{chunk text}
+
+[Section: Item 1A – Risk Factors | Pages 18–19]
+{chunk text}
+...
+</context>
 ```
 
 ### Conversational Memory
